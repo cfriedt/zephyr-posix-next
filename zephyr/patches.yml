@@ -1,0 +1,23 @@
+patches:
+  - path: zephyr/deprecate-config-posix-api.patch
+    sha256sum: 7286699dc0e93a4c3668fd3a6129e444cecae3aafe7c5158fdb7663b50fdc072
+    module: zephyr
+    author: Chris Friedt
+    email: cfriedt@tenstorrent.com
+    date: 2025-10-18
+    upstreamable: true
+    merge-pr: https://github.com/zephyrproject-rtos/zephyr/pull/97855
+    comments: |
+      deprecate CONFIG_POSIX_API
+      Note: the patch was taken on 2025-11-10.
+  - path: zephyr/do-not-define--POSIX-C-SOURCE-and--XOPEN-SOURCE-globally.patch
+    sha256sum: 663aa98f247337075ada2be888511ab8d65aab071b356f23ab404120bdd2a8ec
+    module: zephyr
+    author: Chris Friedt
+    email: cfriedt@tenstorrent.com
+    date: 2025-10-24
+    upstreamable: true
+    merge-pr: https://github.com/zephyrproject-rtos/zephyr/pull/97855
+    comments: |
+      Note: this was originally part of the same PR above, but split out to make review easier.
+      on 2025-10-23.
