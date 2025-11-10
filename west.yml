@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+
+manifest:
+  remotes:
+    - name: zephyrproject-rtos
+      url-base: https://github.com/zephyrproject-rtos
+
+  # zephyr-keep-sorted-start re(^\s+\- name:)
+  projects:
+    - name: zephyr
+      remote: zephyrproject-rtos
+      revision: v4.3.0-rc3
+      import:
+        name-allowlist:
+          - cmsis_6
+          - fatfs
+          - mbedtls
+          - net-tools
+          - picolibc
+  # zephyr-keep-sorted-stop

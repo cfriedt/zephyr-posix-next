@@ -1,0 +1,590 @@
+diff --git a/include/zephyr/net/socket.h b/include/zephyr/net/socket.h
+index 5f09b530f20..35c53cbec1a 100644
+--- a/include/zephyr/net/socket.h
++++ b/include/zephyr/net/socket.h
+@@ -1279,21 +1279,26 @@ struct socket_op_vtable {
+  * native_sim pulls in those from the host rather than Zephyr's.
+  */
+ #if defined(CONFIG_POSIX_NETWORKING)
+-#if !defined(ZEPHYR_INCLUDE_POSIX_ARPA_INET_H_)
++
++/*
++ * Note: this is required to avoid globally defining _POSIX_C_SOURCE and _XOPEN_SOURCE. The
++ * dependency loop should be fixed with #97050 or adjacent PRs.
++ */
++#undef _POSIX_C_SOURCE
++#define _POSIX_C_SOURCE 200809L
++#undef _XOPEN_SOURCE
++#define _XOPEN_SOURCE 700
++
++#include <sys/stat.h>
+ #include <arpa/inet.h>
+-#endif
+-#if !defined(ZEPHYR_INCLUDE_POSIX_NETDB_H_)
+ #include <netdb.h>
+-#endif
+-#if !defined(ZEPHYR_INCLUDE_POSIX_UNISTD_H_)
+ #include <unistd.h>
+-#endif
+-#if !defined(ZEPHYR_INCLUDE_POSIX_POLL_H_)
+ #include <poll.h>
+-#endif
+-#if !defined(ZEPHYR_INCLUDE_POSIX_SYS_SOCKET_H_)
+ #include <sys/socket.h>
+-#endif
++
++#undef _POSIX_C_SOURCE
++#undef _XOPEN_SOURCE
++
+ #endif /* CONFIG_POSIX_NETWORKING */
+ 
+ #endif /* ZEPHYR_INCLUDE_NET_SOCKET_H_ */
+diff --git a/include/zephyr/posix/sys/socket.h b/include/zephyr/posix/sys/socket.h
+index 669434f8fd0..cae67100328 100644
+--- a/include/zephyr/posix/sys/socket.h
++++ b/include/zephyr/posix/sys/socket.h
+@@ -22,6 +22,12 @@
+ extern "C" {
+ #endif
+ 
++#if !defined(_SOCKLEN_T_DECLARED) && !defined(__socklen_t_defined)
++typedef uint32_t socklen_t;
++#define _SOCKLEN_T_DECLARED
++#define __socklen_t_defined
++#endif
++
+ struct linger {
+ 	int  l_onoff;
+ 	int  l_linger;
+diff --git a/include/zephyr/sys/clock.h b/include/zephyr/sys/clock.h
+index 8aa2514eae6..34f490dc642 100644
+--- a/include/zephyr/sys/clock.h
++++ b/include/zephyr/sys/clock.h
+@@ -385,8 +385,6 @@ static inline bool sys_timepoint_expired(k_timepoint_t timepoint)
+ /* forward declaration as workaround for time.h */
+ struct timespec;
+ 
+-/* Convert a POSIX clock (cast to int) to a sys_clock identifier */
+-int sys_clock_from_clockid(int clock_id);
+ /** INTERNAL_HIDDEN @endcond */
+ 
+ /**
+diff --git a/lib/libc/common/CMakeLists.txt b/lib/libc/common/CMakeLists.txt
+index ed3d28fe5a6..f04fc5e99ec 100644
+--- a/lib/libc/common/CMakeLists.txt
++++ b/lib/libc/common/CMakeLists.txt
+@@ -23,3 +23,5 @@ zephyr_library_sources_ifdef(CONFIG_COMMON_LIBC_REMOVE source/stdio/remove.c)
+ 
+ # Prevent compiler from optimizing calloc into an infinite recursive call
+ zephyr_library_compile_options($<TARGET_PROPERTY:compiler,no_builtin_malloc>)
++
++zephyr_library_compile_definitions_ifdef(CONFIG_COMMON_LIBC_THRD -D_POSIX_C_SOURCE=200809L)
+diff --git a/lib/os/clock.c b/lib/os/clock.c
+index 2b9968b2eeb..1a902dd4445 100644
+--- a/lib/os/clock.c
++++ b/lib/os/clock.c
+@@ -50,22 +50,6 @@ static void timespec_from_ticks(uint64_t ticks, struct timespec *ts)
+ 	};
+ }
+ 
+-int sys_clock_from_clockid(int clock_id)
+-{
+-	switch (clock_id) {
+-#if defined(CLOCK_REALTIME) || defined(_POSIX_C_SOURCE)
+-	case (int)CLOCK_REALTIME:
+-		return SYS_CLOCK_REALTIME;
+-#endif
+-#if defined(CLOCK_MONOTONIC) || defined(_POSIX_MONOTONIC_CLOCK)
+-	case (int)CLOCK_MONOTONIC:
+-		return SYS_CLOCK_MONOTONIC;
+-#endif
+-	default:
+-		return -EINVAL;
+-	}
+-}
+-
+ int sys_clock_gettime(int clock_id, struct timespec *ts)
+ {
+ 	if (!is_valid_clock_id(clock_id)) {
+diff --git a/lib/posix/options/CMakeLists.txt b/lib/posix/options/CMakeLists.txt
+index ecc102dd8f6..59b51d59f03 100644
+--- a/lib/posix/options/CMakeLists.txt
++++ b/lib/posix/options/CMakeLists.txt
+@@ -5,14 +5,9 @@ set(XOPEN_VERSION 700)
+ set(GEN_DIR ${ZEPHYR_BINARY_DIR}/include/generated)
+ 
+ if(CONFIG_POSIX_SYSTEM_INTERFACES)
+-  zephyr_compile_definitions(-D_POSIX_C_SOURCE=${POSIX_VERSION})
+   zephyr_compile_options("SHELL: $<$<COMPILE_LANGUAGE:C>:$<TARGET_PROPERTY:compiler,imacros> ${ZEPHYR_BASE}/include/zephyr/posix/posix_features.h>")
+   zephyr_compile_options("SHELL: $<$<COMPILE_LANGUAGE:CXX>:$<TARGET_PROPERTY:compiler,imacros> ${ZEPHYR_BASE}/include/zephyr/posix/posix_features.h>")
+ endif()
+-if(CONFIG_XSI)
+-  zephyr_compile_definitions(-D_XOPEN_SOURCE=${XOPEN_VERSION})
+-endif()
+-
+ 
+ zephyr_syscall_header_ifdef(CONFIG_POSIX_CLOCK_SELECTION posix_clock.h)
+ zephyr_syscall_header_ifdef(CONFIG_POSIX_TIMERS posix_clock.h)
+@@ -166,3 +161,6 @@ zephyr_library_include_directories(
+ )
+ 
+ zephyr_library_property(ALLOW_EMPTY TRUE)
++
++zephyr_library_compile_options(-U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
++zephyr_library_compile_options_ifdef(CONFIG_XSI -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700)
+diff --git a/lib/posix/options/Kconfig.fs b/lib/posix/options/Kconfig.fs
+index e5e52236f45..6cb3f4778c1 100644
+--- a/lib/posix/options/Kconfig.fs
++++ b/lib/posix/options/Kconfig.fs
+@@ -4,7 +4,6 @@
+ 
+ menuconfig POSIX_FILE_SYSTEM
+ 	bool "POSIX file system API support"
+-	default y if POSIX_SYSTEM_INTERFACES
+ 	select FILE_SYSTEM
+ 	select FDTABLE
+ 	help
+diff --git a/lib/posix/options/Kconfig.timer b/lib/posix/options/Kconfig.timer
+index 42eed40bce6..67c6f734c49 100644
+--- a/lib/posix/options/Kconfig.timer
++++ b/lib/posix/options/Kconfig.timer
+@@ -27,6 +27,8 @@ config POSIX_THREAD_CPUTIME
+ 
+ config POSIX_MONOTONIC_CLOCK
+ 	bool "POSIX Monotonic clock support"
++	# TODO: move this to the XSI_ADVANCED_REALTIME option when it is created
++	default y
+ 	help
+ 	  This enables CLOCK_MONOTONIC.
+ 
+@@ -36,6 +38,8 @@ config POSIX_MONOTONIC_CLOCK
+ 
+ config POSIX_CPUTIME
+ 	bool "POSIX per-process CPU-time clocks"
++	# TODO: move this to the XSI_ADVANCED_REALTIME option when it is created
++	default y
+ 	help
+ 	  This enables CLOCK_PROCESS_CPUTIME_ID.
+ 
+diff --git a/lib/posix/options/clock.c b/lib/posix/options/clock.c
+index 71c963803bb..2e8b8fdca5e 100644
+--- a/lib/posix/options/clock.c
++++ b/lib/posix/options/clock.c
+@@ -5,6 +5,8 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
++#include "posix_clock.h"
++
+ #include <errno.h>
+ #include <time.h>
+ 
+diff --git a/lib/posix/options/fs.c b/lib/posix/options/fs.c
+index 0217ef4ddb0..b37bb106155 100644
+--- a/lib/posix/options/fs.c
++++ b/lib/posix/options/fs.c
+@@ -4,9 +4,6 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#undef _POSIX_C_SOURCE
+-#define _POSIX_C_SOURCE 200809L
+-
+ #include "fs_priv.h"
+ 
+ #include <errno.h>
+diff --git a/lib/posix/options/posix_clock.h b/lib/posix/options/posix_clock.h
+index 3ef01c9097e..d2b72f4d885 100644
+--- a/lib/posix/options/posix_clock.h
++++ b/lib/posix/options/posix_clock.h
+@@ -8,6 +8,7 @@
+ #ifndef ZEPHYR_LIB_POSIX_POSIX_CLOCK_H_
+ #define ZEPHYR_LIB_POSIX_POSIX_CLOCK_H_
+ 
++#include <errno.h>
+ #include <stdbool.h>
+ #include <stdint.h>
+ #include <time.h>
+@@ -59,6 +60,21 @@ static inline bool tp_diff_in_range_ns(const struct timespec *a, const struct ti
+ 
+ uint32_t timespec_to_timeoutms(int clock_id, const struct timespec *abstime);
+ 
++/* Convert a POSIX clock (cast to int) to a sys_clock identifier */
++static inline int sys_clock_from_clockid(int clock_id)
++{
++	switch (clock_id) {
++	case (int)CLOCK_REALTIME:
++		return SYS_CLOCK_REALTIME;
++#if defined(_POSIX_MONOTONIC_CLOCK)
++	case (int)CLOCK_MONOTONIC:
++		return SYS_CLOCK_MONOTONIC;
++#endif
++	default:
++		return -EINVAL;
++	}
++}
++
+ /** INTERNAL_HIDDEN @endcond */
+ 
+ #ifdef __cplusplus
+diff --git a/lib/posix/options/timer.c b/lib/posix/options/timer.c
+index 04977bfae7d..7cc491d730c 100644
+--- a/lib/posix/options/timer.c
++++ b/lib/posix/options/timer.c
+@@ -16,6 +16,7 @@
+ 
+ #include <zephyr/kernel.h>
+ #include <zephyr/logging/log.h>
++#include <zephyr/sys/clock.h>
+ #include <pthread.h>
+ 
+ #define ACTIVE 1
+@@ -125,6 +126,18 @@ int timer_create(clockid_t clockid, struct sigevent *evp, timer_t *timerid)
+ 		return -1;
+ 	}
+ 
++	switch (clockid) {
++	case CLOCK_REALTIME:
++		break;
++#ifdef _POSIX_MONOTONIC_CLOCK
++	case CLOCK_MONOTONIC:
++		break;
++#endif
++	default:
++		errno = EINVAL;
++		return -1;
++	}
++
+ 	if (k_mem_slab_alloc(&posix_timer_slab, (void **)&timer, alloc_timeout) != 0) {
+ 		LOG_DBG("k_mem_slab_alloc() failed: %d", ret);
+ 		errno = ENOMEM;
+diff --git a/modules/hostap/CMakeLists.txt b/modules/hostap/CMakeLists.txt
+index 41a50842b71..a60c01a3255 100644
+--- a/modules/hostap/CMakeLists.txt
++++ b/modules/hostap/CMakeLists.txt
+@@ -47,6 +47,8 @@ zephyr_library_compile_definitions(
+   CONFIG_CTRL_IFACE_ZEPHYR
+   CONFIG_SUITEB192
+   CONFIG_SUITEB
++  _POSIX_C_SOURCE=200809L
++  _XOPEN_SOURCE=700
+ )
+ 
+ 
+diff --git a/modules/hostap/Kconfig b/modules/hostap/Kconfig
+index 604e2d96ea1..49f6d3e1c0a 100644
+--- a/modules/hostap/Kconfig
++++ b/modules/hostap/Kconfig
+@@ -10,6 +10,7 @@ config WIFI_NM_WPA_SUPPLICANT
+ 	select POSIX_SYSTEM_INTERFACES
+ 	select POSIX_BASE_DEFINITIONS
+ 	select POSIX_AEP_REALTIME_MINIMAL
++	select POSIX_AEP_REALTIME_CONTROLLER
+ 	select POSIX_NETWORKING
+ 	imply EVENTFD
+ 	imply POSIX_FD_MGMT
+diff --git a/samples/net/ocpp/CMakeLists.txt b/samples/net/ocpp/CMakeLists.txt
+index b7e93067df3..7c6c4b54efc 100644
+--- a/samples/net/ocpp/CMakeLists.txt
++++ b/samples/net/ocpp/CMakeLists.txt
+@@ -7,3 +7,5 @@ project(ocpp)
+ 
+ include(${ZEPHYR_BASE}/samples/net/common/common.cmake)
+ target_sources(app PRIVATE src/main.c)
++
++target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
+diff --git a/samples/net/sockets/socketpair/CMakeLists.txt b/samples/net/sockets/socketpair/CMakeLists.txt
+index 04318631e5c..a7f475f2c3a 100644
+--- a/samples/net/sockets/socketpair/CMakeLists.txt
++++ b/samples/net/sockets/socketpair/CMakeLists.txt
+@@ -9,3 +9,5 @@ FILE(GLOB app_sources src/*.c)
+ target_sources(app PRIVATE ${app_sources})
+ 
+ include(${ZEPHYR_BASE}/samples/net/common/common.cmake)
++
++target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
+diff --git a/samples/net/wifi/shell/CMakeLists.txt b/samples/net/wifi/shell/CMakeLists.txt
+index a87adf43fd2..01af4b00ba2 100644
+--- a/samples/net/wifi/shell/CMakeLists.txt
++++ b/samples/net/wifi/shell/CMakeLists.txt
+@@ -7,3 +7,5 @@ project(wifi)
+ 
+ FILE(GLOB app_sources src/*.c)
+ target_sources(app PRIVATE ${app_sources})
++
++target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
+diff --git a/samples/posix/eventfd/CMakeLists.txt b/samples/posix/eventfd/CMakeLists.txt
+index 7d75a3e8532..83196301263 100644
+--- a/samples/posix/eventfd/CMakeLists.txt
++++ b/samples/posix/eventfd/CMakeLists.txt
+@@ -6,3 +6,5 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+ project(eventfd)
+ 
+ target_sources(app PRIVATE src/main.c)
++
++target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
+diff --git a/samples/posix/philosophers/CMakeLists.txt b/samples/posix/philosophers/CMakeLists.txt
+index 2f19561d195..fbc73c893c1 100644
+--- a/samples/posix/philosophers/CMakeLists.txt
++++ b/samples/posix/philosophers/CMakeLists.txt
+@@ -8,3 +8,5 @@ target_sources(app PRIVATE src/main.c)
+ # For translating POSIX scheduler policies and priorities to
+ # Zephyr priorities.
+ target_include_directories(app PRIVATE ${ZEPHYR_BASE}/lib/posix/options)
++
++target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
+diff --git a/samples/posix/uname/CMakeLists.txt b/samples/posix/uname/CMakeLists.txt
+index 82257e7cc7d..abed878f894 100644
+--- a/samples/posix/uname/CMakeLists.txt
++++ b/samples/posix/uname/CMakeLists.txt
+@@ -6,3 +6,6 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+ project(posix_uname)
+ 
+ target_sources(app PRIVATE src/main.c)
++
++target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
++target_compile_options(app PRIVATE -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700)
+diff --git a/subsys/net/lib/ocpp/CMakeLists.txt b/subsys/net/lib/ocpp/CMakeLists.txt
+index fe797a00bfa..5a8b90c929d 100644
+--- a/subsys/net/lib/ocpp/CMakeLists.txt
++++ b/subsys/net/lib/ocpp/CMakeLists.txt
+@@ -9,3 +9,8 @@ zephyr_library_sources(
+     ocpp_j.c
+     ocpp_wamp_rpc.c
+ )
++
++zephyr_library_compile_definitions(
++    _POSIX_C_SOURCE=200809L
++    _XOPEN_SOURCE=700
++)
+diff --git a/subsys/net/lib/ocpp/Kconfig b/subsys/net/lib/ocpp/Kconfig
+index d3b64184118..1e4a6e36e8d 100644
+--- a/subsys/net/lib/ocpp/Kconfig
++++ b/subsys/net/lib/ocpp/Kconfig
+@@ -7,6 +7,8 @@ config OCPP
+ 	depends on WEBSOCKET_CLIENT
+ 	select EXPERIMENTAL
+ 	select POSIX_C_LANG_SUPPORT_R
++	select POSIX_SYSTEM_INTERFACES
++	select POSIX_BASE_DEFINITIONS
+ 	help
+ 	  This option enables the open charge point protocol library
+ 
+diff --git a/tests/benchmarks/posix/threads/CMakeLists.txt b/tests/benchmarks/posix/threads/CMakeLists.txt
+index efbb1bb00e2..7ea7ab3a71f 100644
+--- a/tests/benchmarks/posix/threads/CMakeLists.txt
++++ b/tests/benchmarks/posix/threads/CMakeLists.txt
+@@ -8,3 +8,5 @@ project(pthread_pressure)
+ 
+ FILE(GLOB app_sources src/*.c)
+ target_sources(app PRIVATE ${app_sources})
++
++target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
+diff --git a/tests/lib/c_lib/thrd/CMakeLists.txt b/tests/lib/c_lib/thrd/CMakeLists.txt
+index 795545f0cb9..8db0355e96d 100644
+--- a/tests/lib/c_lib/thrd/CMakeLists.txt
++++ b/tests/lib/c_lib/thrd/CMakeLists.txt
+@@ -7,3 +7,5 @@ project(c11_threads)
+ FILE(GLOB app_sources src/*.c)
+ 
+ target_sources(app PRIVATE ${app_sources})
++
++target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
+diff --git a/tests/modules/thrift/ThriftTest/CMakeLists.txt b/tests/modules/thrift/ThriftTest/CMakeLists.txt
+index bbdeacb23e1..54acf291414 100644
+--- a/tests/modules/thrift/ThriftTest/CMakeLists.txt
++++ b/tests/modules/thrift/ThriftTest/CMakeLists.txt
+@@ -55,3 +55,5 @@ generate_inc_file_for_target(
+     ${ZEPHYR_BASE}/samples/modules/thrift/hello/qemu-key.pem
+     ${gen_dir}/qemu_key.pem.inc
+     )
++
++target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
+diff --git a/tests/posix/eventfd/CMakeLists.txt b/tests/posix/eventfd/CMakeLists.txt
+index 65d1a7cb914..9e8850f96f8 100644
+--- a/tests/posix/eventfd/CMakeLists.txt
++++ b/tests/posix/eventfd/CMakeLists.txt
+@@ -6,3 +6,6 @@ project(eventfd)
+ 
+ FILE(GLOB app_sources src/*.c)
+ target_sources(app PRIVATE ${app_sources})
++
++target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
++target_compile_options(app PRIVATE -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700)
+diff --git a/tests/posix/fs/CMakeLists.txt b/tests/posix/fs/CMakeLists.txt
+index 79f86d44d2f..6126ee61582 100644
+--- a/tests/posix/fs/CMakeLists.txt
++++ b/tests/posix/fs/CMakeLists.txt
+@@ -8,3 +8,4 @@ FILE(GLOB app_sources src/*.c)
+ target_sources(app PRIVATE ${app_sources})
+ 
+ target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
++target_compile_options(app PRIVATE -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700)
+diff --git a/tests/posix/fs/prj.conf b/tests/posix/fs/prj.conf
+index 0e252164e02..675d754cd3b 100644
+--- a/tests/posix/fs/prj.conf
++++ b/tests/posix/fs/prj.conf
+@@ -4,6 +4,10 @@ CONFIG_FAT_FILESYSTEM_ELM=y
+ CONFIG_POSIX_AEP_CHOICE_PSE52=y
+ CONFIG_POSIX_FILE_SYSTEM=y
+ CONFIG_POSIX_FILE_SYSTEM_R=y
++# CONFIG_XSI=y is needed for constants S_IFDIR and S_IFREG
++# For more information, please see
++# https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/sys_stat.h.html
++CONFIG_XSI=y
+ CONFIG_ZTEST=y
+ CONFIG_MAIN_STACK_SIZE=4096
+ CONFIG_ZTEST_STACK_SIZE=2048
+diff --git a/tests/posix/fs/src/test_fs_stat.c b/tests/posix/fs/src/test_fs_stat.c
+index 2d799c9a273..4a94bc49832 100644
+--- a/tests/posix/fs/src/test_fs_stat.c
++++ b/tests/posix/fs/src/test_fs_stat.c
+@@ -4,9 +4,6 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-#undef _POSIX_C_SOURCE
+-#define _POSIX_C_SOURCE 200809L
+-
+ #include <string.h>
+ #include <fcntl.h>
+ #include <sys/stat.h>
+diff --git a/tests/posix/net/CMakeLists.txt b/tests/posix/net/CMakeLists.txt
+index 9f1e311355a..a383c174491 100644
+--- a/tests/posix/net/CMakeLists.txt
++++ b/tests/posix/net/CMakeLists.txt
+@@ -9,3 +9,4 @@ FILE(GLOB app_sources src/*.c)
+ target_sources(app PRIVATE ${app_sources})
+ 
+ target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
++target_compile_options(app PRIVATE -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700)
+diff --git a/tests/posix/timers/CMakeLists.txt b/tests/posix/timers/CMakeLists.txt
+index 9eab9f09c6f..b6fd64d6c28 100644
+--- a/tests/posix/timers/CMakeLists.txt
++++ b/tests/posix/timers/CMakeLists.txt
+@@ -9,4 +9,5 @@ FILE(GLOB app_sources src/*.c)
+ target_sources(app PRIVATE ${app_sources})
+ 
+ target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
++target_compile_options(app PRIVATE -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700)
+ target_include_directories(app PRIVATE ${ZEPHYR_BASE}/lib/posix/options)
+diff --git a/tests/posix/timers/src/clock.c b/tests/posix/timers/src/clock.c
+index 7e6b39137b9..112196bb1e3 100644
+--- a/tests/posix/timers/src/clock.c
++++ b/tests/posix/timers/src/clock.c
+@@ -24,7 +24,9 @@ LOG_MODULE_REGISTER(clock_test, LOG_LEVEL_DBG);
+ static const struct timespec ref_ts = {1514821501, NSEC_PER_SEC / 2U};
+ 
+ static const clockid_t clocks[] = {
++#if defined(_POSIX_MONOTONIC_CLOCK)
+ 	CLOCK_MONOTONIC,
++#endif
+ 	CLOCK_REALTIME,
+ };
+ 
+diff --git a/tests/posix/timers/src/timer.c b/tests/posix/timers/src/timer.c
+index 50ecaa334f3..fc70025ebc7 100644
+--- a/tests/posix/timers/src/timer.c
++++ b/tests/posix/timers/src/timer.c
+@@ -60,9 +60,9 @@ void test_timer(clockid_t clock_id, int sigev_notify)
+ 	LOG_DBG("Time remaining to fire %d secs and  %d nsecs", (int)value.it_value.tv_sec,
+ 		(int)value.it_value.tv_nsec);
+ 
+-	clock_gettime(clock_id, &ts);
++	zassert_ok(clock_gettime(clock_id, &ts));
+ 	k_sleep(K_SECONDS(SECS_TO_SLEEP));
+-	clock_gettime(clock_id, &te);
++	zassert_ok(clock_gettime(clock_id, &te));
+ 
+ 	if (te.tv_nsec >= ts.tv_nsec) {
+ 		secs_elapsed = te.tv_sec - ts.tv_sec;
+@@ -94,12 +94,20 @@ ZTEST(posix_timers, test_CLOCK_REALTIME__SIGEV_THREAD)
+ 
+ ZTEST(posix_timers, test_CLOCK_MONOTONIC__SIGEV_SIGNAL)
+ {
++#if defined(_POSIX_MONOTONIC_CLOCK)
+ 	test_timer(CLOCK_MONOTONIC, SIGEV_SIGNAL);
++#else
++	ztest_test_skip();
++#endif
+ }
+ 
+ ZTEST(posix_timers, test_CLOCK_MONOTONIC__SIGEV_THREAD)
+ {
++#if defined(_POSIX_MONOTONIC_CLOCK)
+ 	test_timer(CLOCK_MONOTONIC, SIGEV_THREAD);
++#else
++	ztest_test_skip();
++#endif
+ }
+ 
+ ZTEST(posix_timers, test_timer_overrun)
+@@ -109,7 +117,7 @@ ZTEST(posix_timers, test_timer_overrun)
+ 
+ 	sig.sigev_notify = SIGEV_NONE;
+ 
+-	zassert_ok(timer_create(CLOCK_MONOTONIC, &sig, &timerid));
++	zassert_ok(timer_create(CLOCK_REALTIME, &sig, &timerid));
+ 
+ 	/*Set the timer to expire every 500 milliseconds*/
+ 	value.it_interval.tv_sec = 0;
+diff --git a/tests/posix/xsi_realtime/CMakeLists.txt b/tests/posix/xsi_realtime/CMakeLists.txt
+index 473d87110d1..fdc713df0d9 100644
+--- a/tests/posix/xsi_realtime/CMakeLists.txt
++++ b/tests/posix/xsi_realtime/CMakeLists.txt
+@@ -9,3 +9,4 @@ FILE(GLOB app_sources src/*.c)
+ target_sources(app PRIVATE ${app_sources})
+ 
+ target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
++target_compile_options(app PRIVATE -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700)
+diff --git a/tests/posix/xsi_realtime/src/mqueue.c b/tests/posix/xsi_realtime/src/mqueue.c
+index ae1f7c3d3f8..f8fd608f1d3 100644
+--- a/tests/posix/xsi_realtime/src/mqueue.c
++++ b/tests/posix/xsi_realtime/src/mqueue.c
+@@ -35,7 +35,7 @@ static void *sender_thread(void *p1)
+ 	struct timespec curtime;
+ 
+ 	mqd = mq_open(queue, O_WRONLY);
+-	clock_gettime(CLOCK_MONOTONIC, &curtime);
++	zassert_ok(clock_gettime(CLOCK_REALTIME, &curtime));
+ 	curtime.tv_sec += 1;
+ 	zassert_false(mq_timedsend(mqd, send_data, MESSAGE_SIZE, 0, &curtime),
+ 		      "Not able to send message in timer");
+@@ -51,7 +51,7 @@ static void *receiver_thread(void *p1)
+ 	struct timespec curtime;
+ 
+ 	mqd = mq_open(queue, O_RDONLY);
+-	clock_gettime(CLOCK_MONOTONIC, &curtime);
++	zassert_ok(clock_gettime(CLOCK_REALTIME, &curtime));
+ 	curtime.tv_sec += 1;
+ 	mq_timedreceive(mqd, rec_data, MESSAGE_SIZE, 0, &curtime);
+ 	zassert_false(strcmp(rec_data, send_data), "Error in data reception. exp: %s act: %s",
+diff --git a/tests/posix/xsi_streams/CMakeLists.txt b/tests/posix/xsi_streams/CMakeLists.txt
+index 33c8e509075..271e84e6fc7 100644
+--- a/tests/posix/xsi_streams/CMakeLists.txt
++++ b/tests/posix/xsi_streams/CMakeLists.txt
+@@ -7,3 +7,6 @@ project(xsi_streams)
+ FILE(GLOB app_sources src/main.c)
+ 
+ target_sources(app PRIVATE ${app_sources})
++
++target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
++target_compile_options(app PRIVATE -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700)
+diff --git a/tests/posix/xsi_system_logging/CMakeLists.txt b/tests/posix/xsi_system_logging/CMakeLists.txt
+index d840466ff2c..0ffcfefeb11 100644
+--- a/tests/posix/xsi_system_logging/CMakeLists.txt
++++ b/tests/posix/xsi_system_logging/CMakeLists.txt
+@@ -7,3 +7,4 @@ project(xsi_system_logging)
+ target_sources(app PRIVATE src/main.c)
+ 
+ target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
++target_compile_options(app PRIVATE -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700)
+diff --git a/tests/posix/xsi_threads_ext/CMakeLists.txt b/tests/posix/xsi_threads_ext/CMakeLists.txt
+index 45924ece325..85401ed21d3 100644
+--- a/tests/posix/xsi_threads_ext/CMakeLists.txt
++++ b/tests/posix/xsi_threads_ext/CMakeLists.txt
+@@ -7,3 +7,4 @@ project(xsi_threads_ext)
+ target_sources(app PRIVATE src/main.c)
+ 
+ target_compile_options(app PRIVATE -U_POSIX_C_SOURCE -D_POSIX_C_SOURCE=200809L)
++target_compile_options(app PRIVATE -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700)
