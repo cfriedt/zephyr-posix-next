@@ -1,0 +1,265 @@
+/*
+ * Copyright (c) 2024, Meta
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#ifdef CONFIG_POSIX_SYSCONF_IMPL_FULL
+
+#include <errno.h>
+#include <limits.h>
+#include <unistd.h>
+
+#include <zephyr/sys/util.h>
+
+long sysconf(int name)
+{
+	switch (name) {
+	case _SC_ADVISORY_INFO:
+		return -1L;
+	case _SC_ASYNCHRONOUS_IO:
+		return COND_CODE_1(CONFIG_POSIX_ASYNCHRONOUS_IO, (_POSIX_VERSION), (-1L));
+	case _SC_BARRIERS:
+		return COND_CODE_1(CONFIG_POSIX_BARRIERS, (_POSIX_VERSION), (-1L));
+	case _SC_CLOCK_SELECTION:
+		return COND_CODE_1(CONFIG_POSIX_CLOCK_SELECTION, (_POSIX_VERSION), (-1L));
+	case _SC_CPUTIME:
+		return COND_CODE_1(CONFIG_POSIX_CPUTIME, (_POSIX_VERSION), (-1L));
+	case _SC_FSYNC:
+		return COND_CODE_1(CONFIG_POSIX_FSYNC, (_POSIX_VERSION), (-1L));
+	case _SC_IPV6:
+		return COND_CODE_1(CONFIG_NET_IPV6, (_POSIX_VERSION), (-1L));
+	case _SC_JOB_CONTROL:
+		return -1L;
+	case _SC_MAPPED_FILES:
+		return COND_CODE_1(CONFIG_POSIX_MAPPED_FILES, (_POSIX_VERSION), (-1L));
+	case _SC_MEMLOCK:
+		return COND_CODE_1(CONFIG_POSIX_MEMLOCK, (_POSIX_VERSION), (-1L));
+	case _SC_MEMLOCK_RANGE:
+		return COND_CODE_1(CONFIG_POSIX_MEMLOCK_RANGE, (_POSIX_VERSION), (-1L));
+	case _SC_MEMORY_PROTECTION:
+		return COND_CODE_1(CONFIG_POSIX_MEMORY_PROTECTION, (_POSIX_VERSION), (-1L));
+	case _SC_MESSAGE_PASSING:
+		return COND_CODE_1(CONFIG_POSIX_MESSAGE_PASSING, (_POSIX_VERSION), (-1L));
+	case _SC_MONOTONIC_CLOCK:
+		return COND_CODE_1(CONFIG_POSIX_MONOTONIC_CLOCK, (_POSIX_VERSION), (-1L));
+	case _SC_PRIORITIZED_IO:
+		return -1L;
+	case _SC_PRIORITY_SCHEDULING:
+		return COND_CODE_1(CONFIG_POSIX_PRIORITY_SCHEDULING, (_POSIX_VERSION), (-1L));
+	case _SC_RAW_SOCKETS:
+		return COND_CODE_1(CONFIG_NET_SOCKETS_PACKET, (_POSIX_VERSION), (-1L));
+	case _SC_RE_DUP_MAX:
+		return _POSIX_RE_DUP_MAX;
+	case _SC_READER_WRITER_LOCKS:
+		return COND_CODE_1(CONFIG_POSIX_RW_LOCKS, (_POSIX_VERSION), (-1L));
+	case _SC_REALTIME_SIGNALS:
+		return -1L;
+	case _SC_REGEXP:
+		return -1L;
+	case _SC_SAVED_IDS:
+		return -1L;
+	case _SC_SEMAPHORES:
+		return COND_CODE_1(CONFIG_POSIX_SEMAPHORES, (_POSIX_VERSION), (-1L));
+	case _SC_SHARED_MEMORY_OBJECTS:
+		return COND_CODE_1(CONFIG_POSIX_SHARED_MEMORY_OBJECTS, (_POSIX_VERSION), (-1L));
+	case _SC_SHELL:
+		return -1L;
+	case _SC_SPAWN:
+		return -1L;
+	case _SC_SPIN_LOCKS:
+		return COND_CODE_1(CONFIG_POSIX_SPIN_LOCKS, (_POSIX_VERSION), (-1L));
+	case _SC_SPORADIC_SERVER:
+		return -1L;
+	case _SC_SS_REPL_MAX:
+		return _POSIX_SS_REPL_MAX;
+	case _SC_SYNCHRONIZED_IO:
+		return -1L;
+	case _SC_THREAD_ATTR_STACKADDR:
+		return COND_CODE_1(CONFIG_POSIX_THREAD_ATTR_STACKADDR, (_POSIX_VERSION), (-1L));
+	case _SC_THREAD_ATTR_STACKSIZE:
+		return COND_CODE_1(CONFIG_POSIX_THREAD_ATTR_STACKSIZE, (_POSIX_VERSION), (-1L));
+	case _SC_THREAD_CPUTIME:
+		return -1L;
+	case _SC_THREAD_PRIO_INHERIT:
+		return COND_CODE_1(CONFIG_POSIX_THREAD_PRIO_INHERIT, (_POSIX_VERSION), (-1L));
+	case _SC_THREAD_PRIO_PROTECT:
+		return -1L;
+	case _SC_THREAD_PRIORITY_SCHEDULING:
+		return COND_CODE_1(CONFIG_POSIX_THREAD_PRIORITY_SCHEDULING, (_POSIX_VERSION),
+			(-1L));
+	case _SC_THREAD_PROCESS_SHARED:
+		return -1L;
+	case _SC_THREAD_ROBUST_PRIO_INHERIT:
+		return -1L;
+	case _SC_THREAD_ROBUST_PRIO_PROTECT:
+		return -1L;
+	case _SC_THREAD_SAFE_FUNCTIONS:
+		return COND_CODE_1(CONFIG_POSIX_THREAD_SAFE_FUNCTIONS, (_POSIX_VERSION), (-1L));
+	case _SC_THREAD_SPORADIC_SERVER:
+		return -1L;
+	case _SC_THREADS:
+		return COND_CODE_1(CONFIG_POSIX_THREADS, (_POSIX_VERSION), (-1L));
+	case _SC_TIMEOUTS:
+		return COND_CODE_1(CONFIG_POSIX_TIMEOUTS, (_POSIX_VERSION), (-1L));
+	case _SC_TIMERS:
+		return COND_CODE_1(CONFIG_POSIX_TIMERS, (_POSIX_VERSION), (-1L));
+	case _SC_TRACE:
+		return -1L;
+	case _SC_TRACE_EVENT_FILTER:
+		return -1L;
+	case _SC_TRACE_EVENT_NAME_MAX:
+		return _POSIX_TRACE_NAME_MAX;
+	case _SC_TRACE_INHERIT:
+		return -1L;
+	case _SC_TRACE_LOG:
+		return -1L;
+	case _SC_TRACE_NAME_MAX:
+		return _POSIX_TRACE_NAME_MAX;
+	case _SC_TRACE_SYS_MAX:
+		return _POSIX_TRACE_SYS_MAX;
+	case _SC_TRACE_USER_EVENT_MAX:
+		return _POSIX_TRACE_USER_EVENT_MAX;
+	case _SC_TYPED_MEMORY_OBJECTS:
+		return -1L;
+	case _SC_VERSION:
+		return _POSIX_VERSION;
+	case _SC_V7_ILP32_OFF32:
+		return -1L;
+	case _SC_V7_ILP32_OFFBIG:
+		return -1L;
+	case _SC_V7_LP64_OFF64:
+		return -1L;
+	case _SC_V7_LPBIG_OFFBIG:
+		return -1L;
+	case _SC_BC_BASE_MAX:
+		return -1L;
+	case _SC_BC_DIM_MAX:
+		return -1L;
+	case _SC_BC_SCALE_MAX:
+		return -1L;
+	case _SC_BC_STRING_MAX:
+		return -1L;
+	case _SC_2_C_BIND:
+		return -1L;
+	case _SC_2_C_DEV:
+		return COND_CODE_1(_POSIX2_C_DEV > 0, (_POSIX2_C_DEV), (-1));
+	case _SC_2_CHAR_TERM:
+		return -1L;
+	case _SC_COLL_WEIGHTS_MAX:
+		return -1L;
+	case _SC_DELAYTIMER_MAX:
+		return COND_CODE_1(CONFIG_POSIX_TIMERS, (CONFIG_POSIX_DELAYTIMER_MAX), (0));
+	case _SC_EXPR_NEST_MAX:
+		return -1L;
+	case _SC_2_FORT_DEV:
+		return -1L;
+	case _SC_2_FORT_RUN:
+		return -1L;
+	case _SC_LINE_MAX:
+		return -1L;
+	case _SC_2_LOCALEDEF:
+		return -1L;
+	case _SC_2_PBS:
+		return -1L;
+	case _SC_2_PBS_ACCOUNTING:
+		return -1L;
+	case _SC_2_PBS_CHECKPOINT:
+		return -1L;
+	case _SC_2_PBS_LOCATE:
+		return -1L;
+	case _SC_2_PBS_MESSAGE:
+		return -1L;
+	case _SC_2_PBS_TRACK:
+		return -1L;
+	case _SC_2_SW_DEV:
+		return -1L;
+	case _SC_2_UPE:
+		return -1L;
+	case _SC_2_VERSION:
+		return COND_CODE_1(_POSIX2_VERSION > 0, (_POSIX2_VERSION), (-1));
+	case _SC_XOPEN_CRYPT:
+		return -1L;
+	case _SC_XOPEN_ENH_I18N:
+		return -1L;
+	case _SC_XOPEN_REALTIME:
+		return COND_CODE_1(CONFIG_XSI_REALTIME, (_XOPEN_VERSION), (-1));
+	case _SC_XOPEN_REALTIME_THREADS:
+		return -1L;
+	case _SC_XOPEN_SHM:
+		return -1L;
+	case _SC_XOPEN_STREAMS:
+		return COND_CODE_1(CONFIG_XSI_STREAMS, (_XOPEN_STREAMS), (-1));
+	case _SC_XOPEN_UNIX:
+		return COND_CODE_1(CONFIG_XSI, (_XOPEN_UNIX), (-1));
+	case _SC_XOPEN_UUCP:
+		return -1L;
+	case _SC_XOPEN_VERSION:
+		return COND_CODE_1(CONFIG_XSI, (_XOPEN_VERSION), (0));
+	case _SC_CLK_TCK:
+		return 100L;
+	case _SC_GETGR_R_SIZE_MAX:
+		return 0L;
+	case _SC_GETPW_R_SIZE_MAX:
+		return 0L;
+	case _SC_AIO_LISTIO_MAX:
+		return _POSIX_AIO_LISTIO_MAX;
+	case _SC_AIO_MAX:
+		return _POSIX_AIO_MAX;
+	case _SC_AIO_PRIO_DELTA_MAX:
+		return 0;
+	case _SC_ARG_MAX:
+		return _POSIX_ARG_MAX;
+	case _SC_ATEXIT_MAX:
+		return 32;
+	case _SC_CHILD_MAX:
+		return _POSIX_CHILD_MAX;
+	case _SC_HOST_NAME_MAX:
+		return COND_CODE_1(CONFIG_POSIX_NETWORKING, (CONFIG_POSIX_HOST_NAME_MAX), (0));
+	case _SC_IOV_MAX:
+		return 16;
+	case _SC_LOGIN_NAME_MAX:
+		return _POSIX_LOGIN_NAME_MAX;
+	case _SC_NGROUPS_MAX:
+		return _POSIX_NGROUPS_MAX;
+	case _SC_MQ_OPEN_MAX:
+		return COND_CODE_1(CONFIG_POSIX_MESSAGE_PASSING, (CONFIG_POSIX_MQ_OPEN_MAX), (0));
+	case _SC_MQ_PRIO_MAX:
+		return _POSIX_MQ_PRIO_MAX;
+	case _SC_OPEN_MAX:
+		return CONFIG_POSIX_OPEN_MAX;
+	case _SC_PAGE_SIZE:
+		return CONFIG_POSIX_PAGE_SIZE;
+	case _SC_THREAD_DESTRUCTOR_ITERATIONS:
+		return _POSIX_THREAD_DESTRUCTOR_ITERATIONS;
+	case _SC_THREAD_KEYS_MAX:
+		return COND_CODE_1(CONFIG_POSIX_THREADS, (CONFIG_POSIX_THREAD_KEYS_MAX), (0));
+	case _SC_THREAD_STACK_MIN:
+		return 0;
+	case _SC_THREAD_THREADS_MAX:
+		return COND_CODE_1(CONFIG_POSIX_THREADS, (CONFIG_POSIX_THREAD_THREADS_MAX), (0));
+	case _SC_RTSIG_MAX:
+		return COND_CODE_1(CONFIG_POSIX_REALTIME_SIGNALS, (CONFIG_POSIX_RTSIG_MAX), (0));
+	case _SC_SEM_NSEMS_MAX:
+		return COND_CODE_1(CONFIG_POSIX_SEMAPHORES, (CONFIG_POSIX_SEM_NSEMS_MAX), (0));
+	case _SC_SEM_VALUE_MAX:
+		return COND_CODE_1(CONFIG_POSIX_SEMAPHORES, (CONFIG_POSIX_SEM_VALUE_MAX), (0));
+	case _SC_SIGQUEUE_MAX:
+		return _POSIX_SIGQUEUE_MAX;
+	case _SC_STREAM_MAX:
+		return _POSIX_STREAM_MAX;
+	case _SC_SYMLOOP_MAX:
+		return _POSIX_SYMLOOP_MAX;
+	case _SC_TIMER_MAX:
+		return COND_CODE_1(CONFIG_POSIX_TIMERS, (CONFIG_POSIX_TIMER_MAX), (0));
+	case _SC_TTY_NAME_MAX:
+		return _POSIX_TTY_NAME_MAX;
+	case _SC_TZNAME_MAX:
+		return _POSIX_TZNAME_MAX;
+	default:
+		errno = EINVAL;
+		return -1;
+	}
+}
+
+#endif

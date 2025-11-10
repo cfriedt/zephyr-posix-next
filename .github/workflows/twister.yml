@@ -78,7 +78,7 @@ jobs:
           platforms: ${{ env.ON_DIFF_PLATFORMS }}
           roots: ${{ env.ON_DIFF_ROOTS }}
         shell: bash
-        working-directory: zephyr
+        working-directory: ${{ env.MANIFEST_PATH }}
         run: |
           west twister -c -i $platforms $roots
 
@@ -88,6 +88,6 @@ jobs:
           platforms: ${{ env.NIGHTLY_PLATFORMS }}
           roots: ${{ env.NIGHTLY_ROOTS }}
         shell: bash
-        working-directory: zephyr
+        working-directory: ${{ env.MANIFEST_PATH }}
         run: |
           west twister -c -i $platforms $roots

@@ -1,3 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: zephyr-posix-next
+build:
+  cmake: .
+  kconfig: Kconfig
+
+samples:
+  - samples
+tests:
+  - tests

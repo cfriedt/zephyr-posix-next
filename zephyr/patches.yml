@@ -21,3 +21,12 @@ patches:
     comments: |
       Note: this was originally part of the same PR above, but split out to make review easier.
       on 2025-10-23.
+  - path: zephyr/move-posix-impl-and-tests-out-of-tree.patch
+    sha256sum: 1fa2054e9d2bbdece0563fce7d66243be115c641718d5d7488f9ffa9ce7f34dd
+    module: zephyr
+    author: Chris Friedt
+    email: cfriedt@tenstorrent.com
+    date: 2025-11-10
+    comments: |
+      Not immediately upstreamable. This facilitates unblocked development of Zephyr's POSIX
+      implementation.
