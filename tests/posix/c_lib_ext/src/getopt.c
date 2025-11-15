@@ -30,9 +30,6 @@ ZTEST(posix_c_lib_ext, test_getopt_basic)
 
 	argv = (char **)nargv;
 
-	/* Get state of the current thread */
-	getopt_init();
-
 	do {
 		c = getopt(argc, argv, accepted_opt);
 		if (cnt >= strlen(expected)) {
@@ -55,7 +52,6 @@ enum getopt_idx {
 
 ZTEST(posix_c_lib_ext, test_getopt)
 {
-	struct getopt_state *state;
 	static const char *test_opts = "ac:";
 	static const char *const nargv[] = {
 		[GETOPT_IDX_CMD_NAME] = "cmd_name",
@@ -67,9 +63,6 @@ ZTEST(posix_c_lib_ext, test_getopt)
 	char **argv;
 	int c;
 
-	/* Get state of the current thread */
-	getopt_init();
-
 	argv = (char **)nargv;
 
 	/* Test uknown option */
@@ -80,12 +73,9 @@ ZTEST(posix_c_lib_ext, test_getopt)
 	zassert_equal(c, 'c', "unexpected opt character");
 
 	c = getopt(argc, argv, test_opts);
-	state = getopt_state_get();
 
-	/* Thread safe usge: */
-	zassert_equal(0, strcmp(argv[GETOPT_IDX_OPTARG], state->optarg),
-		      "unexpected optarg result");
-	/* Non thread safe usage: */
+	zassert_equal(0, strcmp(argv[GETOPT_IDX_OPTARG], optarg),
+				  "unexpected optarg result");
 	zassert_equal(0, strcmp(argv[GETOPT_IDX_OPTARG], optarg), "unexpected optarg result");
 }
 
@@ -101,7 +91,6 @@ ZTEST(posix_c_lib_ext, test_getopt_long)
 	/* Below test is based on example
 	 * https://www.gnu.org/software/libc/manual/html_node/Getopt-Long-Option-Example.html
 	 */
-	struct getopt_state *state;
 	int verbose_flag = 0;
 	/* getopt_long stores the option index here. */
 	int option_index = 0;
@@ -156,33 +145,30 @@ ZTEST(posix_c_lib_ext, test_getopt_long)
 	int argc4 = ARRAY_SIZE(argv4);
 
 	/* Test scenario 1 */
-	/* Get state of the current thread */
-	getopt_init();
+	optind = 1;
 	argv = (char **)argv1;
 	c = getopt_long(argc1, argv, accepted_opt, long_options, &option_index);
 	zassert_equal(verbose_flag, 1, "verbose flag expected");
 	c = getopt_long(argc1, argv, accepted_opt, long_options, &option_index);
-	state = getopt_state_get();
 	zassert_equal('c', c, "unexpected option");
-	zassert_equal(0, strcmp(state->optarg, argv[GETOPT_LONG_IDX_OPTARG]), "unexpected optarg");
+	zassert_equal(0, strcmp(optarg, argv[GETOPT_LONG_IDX_OPTARG]), "unexpected optarg");
 	c = getopt_long(argc1, argv, accepted_opt, long_options, &option_index);
 	zassert_equal(-1, c, "getopt_long shall return -1");
 
 	/* Test scenario 2 */
 	argv = (char **)argv2;
-	getopt_init();
+	optind = 1;
 	c = getopt_long(argc2, argv, accepted_opt, long_options, &option_index);
 	zassert_equal(verbose_flag, 0, "verbose flag expected");
 	c = getopt_long(argc2, argv, accepted_opt, long_options, &option_index);
 	zassert_equal('d', c, "unexpected option");
-	state = getopt_state_get();
-	zassert_equal(0, strcmp(state->optarg, argv[GETOPT_LONG_IDX_OPTARG]), "unexpected optarg");
+	zassert_equal(0, strcmp(optarg, argv[GETOPT_LONG_IDX_OPTARG]), "unexpected optarg");
 	c = getopt_long(argc2, argv, accepted_opt, long_options, &option_index);
 	zassert_equal(-1, c, "getopt_long shall return -1");
 
 	/* Test scenario 3 */
 	argv = (char **)argv3;
-	getopt_init();
+	optind = 1;
 	c = getopt_long(argc3, argv, accepted_opt, long_options, &option_index);
 	zassert_equal(verbose_flag, 0, "verbose flag expected");
 	c = getopt_long(argc3, argv, accepted_opt, long_options, &option_index);
@@ -192,7 +178,7 @@ ZTEST(posix_c_lib_ext, test_getopt_long)
 
 	/* Test scenario 4 */
 	argv = (char **)argv4;
-	getopt_init();
+	optind = 1;
 	c = getopt_long(argc4, argv, accepted_opt, long_options, &option_index);
 	zassert_equal(verbose_flag, 0, "verbose flag expected");
 	c = getopt_long(argc4, argv, accepted_opt, long_options, &option_index);
@@ -208,7 +194,6 @@ ZTEST(posix_c_lib_ext, test_getopt_long_only)
 	/* Below test is based on example
 	 * https://www.gnu.org/software/libc/manual/html_node/Getopt-Long-Option-Example.html
 	 */
-	struct getopt_state *state;
 	int verbose_flag = 0;
 	/* getopt_long stores the option index here. */
 	int option_index = 0;
@@ -264,32 +249,29 @@ ZTEST(posix_c_lib_ext, test_getopt_long_only)
 
 	/* Test scenario 1 */
 	argv = (char **)argv1;
-	getopt_init();
+	optind = 1;
 	c = getopt_long_only(argc1, argv, accepted_opt, long_options, &option_index);
 	zassert_equal(verbose_flag, 1, "verbose flag expected");
 	c = getopt_long_only(argc1, argv, accepted_opt, long_options, &option_index);
-	state = getopt_state_get();
 	zassert_equal('c', c, "unexpected option");
-	zassert_equal(0, strcmp(state->optarg, argv[GETOPT_LONG_IDX_OPTARG]), "unexpected optarg");
+	zassert_equal(0, strcmp(optarg, argv[GETOPT_LONG_IDX_OPTARG]), "unexpected optarg");
 	c = getopt_long_only(argc1, argv, accepted_opt, long_options, &option_index);
 	zassert_equal(-1, c, "getopt_long_only shall return -1");
 
 	/* Test scenario 2 */
 	argv = (char **)argv2;
-	getopt_init();
-	state = getopt_state_get();
+	optind = 1;
 	c = getopt_long_only(argc2, argv, accepted_opt, long_options, &option_index);
 	zassert_equal(verbose_flag, 0, "verbose flag expected");
 	c = getopt_long_only(argc2, argv, accepted_opt, long_options, &option_index);
-	state = getopt_state_get();
 	zassert_equal('d', c, "unexpected option");
-	zassert_equal(0, strcmp(state->optarg, argv[GETOPT_LONG_IDX_OPTARG]), "unexpected optarg");
+	zassert_equal(0, strcmp(optarg, argv[GETOPT_LONG_IDX_OPTARG]), "unexpected optarg");
 	c = getopt_long_only(argc2, argv, accepted_opt, long_options, &option_index);
 	zassert_equal(-1, c, "getopt_long_only shall return -1");
 
 	/* Test scenario 3 */
 	argv = (char **)argv3;
-	getopt_init();
+	optind = 1;
 	c = getopt_long_only(argc3, argv, accepted_opt, long_options, &option_index);
 	zassert_equal(verbose_flag, 0, "verbose flag expected");
 	c = getopt_long_only(argc3, argv, accepted_opt, long_options, &option_index);
@@ -299,7 +281,7 @@ ZTEST(posix_c_lib_ext, test_getopt_long_only)
 
 	/* Test scenario 4 */
 	argv = (char **)argv4;
-	getopt_init();
+	optind = 1;
 	c = getopt_long_only(argc4, argv, accepted_opt, long_options, &option_index);
 	zassert_equal(verbose_flag, 0, "verbose flag expected");
 	c = getopt_long_only(argc4, argv, accepted_opt, long_options, &option_index);

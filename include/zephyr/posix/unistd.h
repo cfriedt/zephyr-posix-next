@@ -44,11 +44,9 @@ FUNC_NORETURN void _exit(int status);
 
 int gethostname(char *buf, size_t len);
 
-#ifdef CONFIG_POSIX_C_LIB_EXT
 int getopt(int argc, char *const argv[], const char *optstring);
 extern char *optarg;
 extern int opterr, optind, optopt;
-#endif
 
 int getentropy(void *buffer, size_t length);
 pid_t getpid(void);
